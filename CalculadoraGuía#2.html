@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Calculadora — Física 1 (NC1001) · Talleres 1 y 2</title>
+<style>
+:root{
+  --bg:#F1F2ED;
+  --surface:#FFFFFF;
+  --surface-alt:#EAEBE4;
+  --ink:#181C1F;
+  --ink-muted:#5C6570;
+  --ink-faint:#8B929A;
+  --line:#D6D8CF;
+  --line-strong:#B8BBAF;
+  --accent:#204E5C;
+  --accent-dark:#153741;
+  --accent-tint:#E3ECED;
+  --result:#A32638;
+  --result-tint:#F8EAEA;
+  --radius:7px;
+  --mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;}
+html,body{height:100%;}
+body{margin:0;font-family:var(--sans);background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;}
+.app{display:flex;flex-direction:column;min-height:100vh;}
+
+.topbar{background:var(--accent);color:#fff;padding:14px 20px;display:flex;align-items:center;gap:14px;}
+.menu-toggle{display:none;background:transparent;border:1px solid rgba(255,255,255,.4);color:#fff;width:38px;height:38px;border-radius:6px;cursor:pointer;font-size:18px;align-items:center;justify-content:center;flex-shrink:0;}
+.topbar h1{font-size:1.05rem;font-weight:600;letter-spacing:.01em;margin:0;line-height:1.3;}
+.topbar .subtitle{font-size:.76rem;color:rgba(255,255,255,.72);font-family:var(--mono);letter-spacing:.02em;margin-top:2px;}
+.ruler-strip{height:7px;background-image:repeating-linear-gradient(90deg, rgba(255,255,255,.55) 0 1px, transparent 1px 6px);opacity:.5;background-color:var(--accent-dark);}
+
+.layout{display:flex;flex:1;min-height:0;position:relative;}
+.sidebar{width:290px;flex-shrink:0;background:var(--surface-alt);border-right:1px solid var(--line);padding:14px 0 40px;overflow-y:auto;}
+.content{flex:1;padding:32px 40px 70px;max-width:780px;}
+
+.nav-cat{font-family:var(--mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-faint);padding:18px 20px 6px;}
+.nav-item{display:block;width:100%;text-align:left;background:transparent;border:none;border-left:3px solid transparent;padding:9px 20px 9px 17px;font-size:.86rem;color:var(--ink);cursor:pointer;line-height:1.35;font-family:var(--sans);}
+.nav-item:hover{background:rgba(0,0,0,.04);}
+.nav-item.active{background:var(--surface);border-left-color:var(--result);color:var(--accent-dark);font-weight:700;}
+.formulario-btn{margin:2px 16px 10px;width:calc(100% - 32px);border:1px solid var(--line-strong) !important;border-radius:var(--radius);background:var(--surface) !important;font-family:var(--mono) !important;font-size:.76rem !important;letter-spacing:.02em;padding:10px 14px !important;color:var(--accent-dark) !important;}
+.formulario-btn.active{background:var(--accent) !important;color:#fff !important;border-color:var(--accent) !important;}
+
+.overlay{display:none;position:fixed;inset:0;background:rgba(10,14,16,.35);z-index:40;}
+.overlay.show{display:block;}
+
+.tool-eyebrow{font-family:var(--mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-faint);margin-bottom:6px;}
+.tool-title{font-size:1.45rem;font-weight:700;margin:0 0 8px;color:var(--ink);letter-spacing:-.01em;}
+.tool-desc{color:var(--ink-muted);font-size:.9rem;line-height:1.55;margin:0 0 18px;max-width:64ch;}
+.formula-plate{font-family:var(--mono);font-size:1.02rem;color:var(--accent-dark);background:linear-gradient(180deg,#EDEEE8,#E2E4DC);border:1px solid var(--line-strong);border-radius:var(--radius);padding:13px 18px;margin-bottom:26px;box-shadow:inset 0 1px 2px rgba(0,0,0,.09), inset 0 -1px 0 rgba(255,255,255,.65);letter-spacing:.01em;overflow-x:auto;white-space:nowrap;}
+.formula-plate.small{font-size:.86rem;padding:10px 14px;margin-bottom:0;white-space:normal;}
+
+.inputs-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px 16px;margin-bottom:24px;}
+.field{display:flex;flex-direction:column;gap:6px;}
+.field-wide{grid-column:1/-1;}
+.field label{font-size:.77rem;color:var(--ink-muted);font-weight:600;line-height:1.3;}
+.field .unit{font-weight:400;color:var(--ink-faint);}
+.field input[type="number"],.field input[type="text"],.field select,.field textarea{
+  font-family:var(--mono);font-size:16px;padding:9px 11px;border:1px solid var(--line-strong);border-radius:6px;background:var(--surface);color:var(--ink);width:100%;
+}
+.field textarea{resize:vertical;min-height:78px;line-height:1.5;}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-tint);}
+
+.output-panel{min-height:70px;}
+.result-row{display:flex;align-items:center;justify-content:space-between;gap:16px;background:var(--result-tint);border:1px solid #E4C3C7;border-radius:var(--radius);padding:16px 20px;flex-wrap:wrap;}
+.result-big{font-family:var(--mono);font-size:1.5rem;font-weight:700;color:var(--result);letter-spacing:-.01em;word-break:break-word;}
+.result-unit{font-size:.95rem;font-weight:500;color:var(--result);opacity:.85;margin-left:3px;}
+.pm{font-weight:400;opacity:.7;padding:0 2px;}
+.copy-btn{font-family:var(--sans);font-size:.82rem;font-weight:600;background:var(--accent);color:#fff;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.copy-btn:hover{background:var(--accent-dark);}
+.copy-btn.copied{background:#2E7D4F;}
+.result-note{font-size:.79rem;color:var(--ink-muted);margin-top:10px;font-family:var(--mono);line-height:1.55;}
+.result-note.strong{color:var(--accent-dark);font-family:var(--sans);font-weight:600;font-size:.85rem;}
+.result-line.muted{color:var(--ink-faint);font-size:.88rem;padding:16px 4px;font-style:italic;}
+.result-table{display:grid;gap:8px;margin-bottom:16px;}
+.result-table>div{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:8px 14px;background:var(--surface);border:1px solid var(--line);border-radius:6px;font-size:.85rem;}
+.result-table span{color:var(--ink-muted);}
+.result-table b{font-family:var(--mono);color:var(--ink);}
+
+.formulario-cat{font-family:var(--mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.09em;color:var(--accent-dark);border-bottom:1px solid var(--line-strong);padding-bottom:6px;margin:26px 0 14px;}
+.formulario-cat:first-of-type{margin-top:6px;}
+.formulario-item{margin-bottom:14px;}
+.formulario-item-title{font-size:.87rem;font-weight:600;margin-bottom:6px;color:var(--ink);}
+
+footer.hint{max-width:780px;padding:0 40px 40px;color:var(--ink-faint);font-size:.78rem;line-height:1.6;}
+
+@media (max-width: 860px){
+  .content{padding:22px 20px 60px;}
+  footer.hint{padding:0 20px 40px;}
+  .sidebar{position:fixed;top:0;left:-320px;bottom:0;width:290px;z-index:50;transition:left .22s ease;box-shadow:2px 0 18px rgba(0,0,0,.18);}
+  .sidebar.open{left:0;}
+  .menu-toggle{display:flex;}
+}
+@media (max-width:480px){
+  .result-big{font-size:1.2rem;}
+  .topbar h1{font-size:.92rem;}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <button class="menu-toggle" id="menuToggle" aria-label="Abrir menu">&#9776;</button>
+    <div>
+      <h1>Calculadora — Física 1 (NC1001)</h1>
+      <div class="subtitle">Guías prácticas 1 y 2 · instrumentos, errores y propagación</div>
+    </div>
+  </header>
+  <div class="ruler-strip"></div>
+  <div class="layout">
+    <div class="overlay" id="overlay"></div>
+    <nav class="sidebar" id="sidebar"></nav>
+    <main class="content" id="content"></main>
+  </div>
+  <footer class="hint">Calculadora de referencia hecha a partir de la Guía Práctica 1 (instrumentos y teoría de errores) y la Guía Práctica 2 (propagación de errores y gráficas) del curso. Verifica siempre el criterio de tu profesor para casos particulares.</footer>
+</div>
+<script>
+/* ============================================================
+   MOTOR DE REDONDEO -- cifras significativas para A +/- deltaA
+   ============================================================ */
+function orderOfMagnitude(x){
+  if (x===0) return 0;
+  return Math.floor(Math.log10(Math.abs(x)) + 1e-9);
+}
+function firstSigDigit(x){
+  const absX = Math.abs(x);
+  if (absX===0) return 0;
+  const k = orderOfMagnitude(absX);
+  let normalized = absX / Math.pow(10,k);
+  normalized = Math.round(normalized*1e9)/1e9;
+  let digit = Math.floor(normalized);
+  if (digit>=10) digit = 9;
+  if (digit<1) digit = 1;
+  return digit;
+}
+function roundHalfToEven(x){
+  const floorVal = Math.floor(x);
+  const diff = x - floorVal;
+  const eps = 1e-7;
+  if (Math.abs(diff-0.5) < eps) return (floorVal%2===0) ? floorVal : floorVal+1;
+  return Math.round(x);
+}
+function roundToDecimalPlaces(x, decimalPlaces){
+  const factor = Math.pow(10, decimalPlaces);
+  const sign = x<0 ? -1 : 1;
+  const scaled = Math.abs(x) * factor;
+  const rounded = roundHalfToEven(scaled);
+  return sign * rounded / factor;
+}
+function roundToSigFigs(x, sigFigs){
+  if (x===0) return 0;
+  const k = orderOfMagnitude(x);
+  const decimalPlaces = sigFigs - 1 - k;
+  return roundToDecimalPlaces(x, decimalPlaces);
+}
+function formatMeasurement(rawValue, rawError){
+  const errAbs = Math.abs(rawError);
+  if (errAbs===0 || !isFinite(errAbs)){
+    return { value: rawValue, error: 0, decimalPlaces: null };
+  }
+  const leadDigit = firstSigDigit(errAbs);
+  const S = (leadDigit===1) ? 2 : 1;
+  const roundedError = roundToSigFigs(errAbs, S);
+  const kNew = orderOfMagnitude(roundedError);
+  const decimalPlaces = S - 1 - kNew;
+  const roundedValue = roundToDecimalPlaces(rawValue, decimalPlaces);
+  return { value: roundedValue, error: roundedError, decimalPlaces, sigFigsUsed:S };
+}
+function fmtNum(x, decimalPlaces){
+  if (decimalPlaces===null || decimalPlaces===undefined) return String(x);
+  if (decimalPlaces>=0) return x.toFixed(decimalPlaces);
+  return String(Math.round(x));
+}
+function roundErrorOnly(errAbs){
+  errAbs = Math.abs(errAbs);
+  if (errAbs===0 || !isFinite(errAbs)) return '0';
+  const lead = firstSigDigit(errAbs);
+  const S = lead===1 ? 2 : 1;
+  const rounded = roundToSigFigs(errAbs, S);
+  const k = orderOfMagnitude(rounded);
+  const dp = S-1-k;
+  return fmtNum(rounded, dp);
+}
+function displayRaw(x, n){
+  if (n===undefined) n = 4;
+  if (!isFinite(x)) return String(x);
+  return parseFloat(x.toFixed(n)).toString();
+}
+
+/* ============================================================
+   CONTADOR DE CIFRAS SIGNIFICATIVAS
+   ============================================================ */
+function countSigFigs(inputStrRaw){
+  let s = String(inputStrRaw).trim();
+  if (s==='') return null;
+  let mantissa = s;
+  const sciMatch = s.match(/^([\-+]?\d*\.?\d+)\s*(?:[x\u00d7X]\s*10\s*\^?\s*[\-+]?\d+|[eE][\-+]?\d+)$/);
+  let isSci = false;
+  if (sciMatch){ mantissa = sciMatch[1]; isSci = true; }
+  mantissa = mantissa.replace(/^[\-+]/,'');
+  if (!/^\d*\.?\d+$/.test(mantissa) || mantissa==='' || mantissa==='.') return { error:true };
+  const hasDecimal = mantissa.indexOf('.') !== -1;
+  if (hasDecimal){
+    const digitsOnly = mantissa.replace('.','');
+    const firstNonZero = digitsOnly.search(/[1-9]/);
+    if (firstNonZero===-1) return { count:1, note:'valor es cero' };
+    const sigPart = digitsOnly.slice(firstNonZero);
+    return { count: sigPart.length, isSci };
+  } else {
+    const firstNonZero = mantissa.search(/[1-9]/);
+    if (firstNonZero===-1) return { count:1, note:'valor es cero' };
+    let lastNonZero = -1;
+    for (let i=mantissa.length-1;i>=0;i--){ if (mantissa[i]!=='0'){ lastNonZero=i; break; } }
+    const sigPart = mantissa.slice(firstNonZero, lastNonZero+1);
+    const ambiguousTrailingZeros = lastNonZero < mantissa.length-1;
+    return { count: sigPart.length, isSci: isSci, ambiguousTrailingZeros: ambiguousTrailingZeros };
+  }
+}
+
+/* ============================================================
+   AYUDANTES DE UI (copiar, escape de atributos)
+   ============================================================ */
+function escAttr(s){
+  return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function copyBtnHtml(text){
+  return '<button type="button" class="copy-btn" data-copy="'+escAttr(text)+'">Copiar</button>';
+}
+function resultRowHtml(displayHtml, copyText){
+  if (copyText===undefined) copyText = displayHtml;
+  return '<div class="result-row"><div class="result-big">'+displayHtml+'</div>'+copyBtnHtml(copyText)+'</div>';
+}
+function bindCopyButtons(container){
+  container.querySelectorAll('.copy-btn').forEach(function(btn){
+    if (btn._bound) return;
+    btn._bound = true;
+    btn.addEventListener('click', function(){ copyToClipboard(btn.dataset.copy, btn); });
+  });
+}
+function copyToClipboard(text, btn){
+  const original = btn.textContent;
+  function showSuccess(){
+    btn.textContent = 'Copiado';
+    btn.classList.add('copied');
+    setTimeout(function(){ btn.textContent = original; btn.classList.remove('copied'); }, 1300);
+  }
+  function fallback(){
+    try{
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position='fixed'; ta.style.left='-9999px'; ta.style.top='0';
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showSuccess();
+    }catch(e){}
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(showSuccess).catch(fallback);
+  } else {
+    fallback();
+  }
+}
+
+/* ============================================================
+   CATEGORIAS
+   ============================================================ */
+const CATEGORIES = [
+  {id:'instrumentos', label:'Instrumentos y cifras significativas'},
+  {id:'repetidas', label:'Medidas repetidas'},
+  {id:'propagacion', label:'Propagacion de errores'},
+  {id:'formulas', label:'Formulas armadas de los talleres'},
+];
+
+/* ============================================================
+   HERRAMIENTAS (18 modulos)
+   ============================================================ */
+const TOOLS = [
+
+{
+  id:'precision-instrumento', cat:'instrumentos',
+  title:'Precision de un instrumento (nonio o tambor)',
+  formula:'C = d / n',
+  desc:'Vernier (pie de rey): d = minima division de la escala fija (normalmente 1 mm). Tornillo micrometrico: d = minima division del eje graduado (normalmente 0.5 mm). n = numero de subdivisiones del nonio o del tambor.',
+  inputs:[
+    {id:'d', type:'number', label:'d - minima division de la escala fija', unit:'mm', def:1},
+    {id:'n', type:'number', label:'n - numero de subdivisiones', unit:'', def:20},
+  ],
+  compute:function(v){
+    if (!(v.n>0)) return null;
+    const C = v.d / v.n;
+    return {kind:'custom', html: resultRowHtml(displayRaw(C,5)+' mm') + '<div class="result-note">Esta es la precision (C) del instrumento: la certeza minima con la que puede leerse una medida.</div>'};
+  }
+},
+
+{
+  id:'cifras-significativas', cat:'instrumentos',
+  title:'Contador de cifras significativas',
+  formula:'Cuenta las cifras significativas de un numero',
+  desc:'Escribe el numero tal cual lo escribirias en tu informe (con los ceros que realmente mediste). Si es un entero sin punto decimal, sus ceros finales NO cuentan como significativos salvo que uses notacion cientifica.',
+  inputs:[
+    {id:'num', type:'text', label:'Numero (puedes usar notacion cientifica: 3.092x10^4)', unit:'', def:'42.20'}
+  ],
+  compute:function(v){
+    const r = countSigFigs(v.num);
+    if (!r || r.error) return {kind:'custom', html:'<div class="result-line muted">Escribe un numero valido, por ejemplo 42.20 o 3.092x10^4.</div>'};
+    let html = resultRowHtml(r.count + (r.count===1 ? ' cifra significativa' : ' cifras significativas'));
+    if (r.ambiguousTrailingZeros){
+      html += '<div class="result-note strong">Como es un entero sin punto decimal, sus ceros finales no se contaron como significativos. Si SI son significativos, escribelo en notacion cientifica (ej. 3.00x10^2).</div>';
+    }
+    return {kind:'custom', html:html};
+  }
+},
+
+{
+  id:'medidas-repetidas', cat:'repetidas',
+  title:'Medidas repetidas: dispersion, N necesario y error',
+  formula:'D = max - min      T = (D / A) x 100%      -> Tabla 1',
+  desc:'Pega tus medidas (una por linea o separadas por coma/espacio) y la sensibilidad S del instrumento. Te dice si con esas medidas basta, cuantas te faltan segun la Tabla 1, y calcula el error correcto segun cuantas medidas ya tienes.',
+  inputs:[
+    {id:'S', type:'number', label:'S - sensibilidad del instrumento', unit:'', def:0.1},
+    {id:'medidas', type:'textlist', label:'Medidas realizadas (una por linea, o separadas por espacio/coma)', unit:'', def:'10.1\n10.3\n10.0'}
+  ],
+  compute:function(v){
+    const arr = v.medidas;
+    if (!arr || arr.length<2) return {kind:'custom', html:'<div class="result-line muted">Ingresa al menos 2 medidas.</div>'};
+    const N = arr.length;
+    const mean = arr.reduce(function(a,b){return a+b;},0)/N;
+    const max = Math.max.apply(null,arr), min = Math.min.apply(null,arr);
+    const D = max-min;
+    const T = mean!==0 ? (D/mean)*100 : NaN;
+    const S = v.S;
+
+    let html = '<div class="result-table">'+
+      '<div><span>N (medidas ingresadas)</span><b>'+N+'</b></div>'+
+      '<div><span>Media (A promedio)</span><b>'+displayRaw(mean,5)+'</b></div>'+
+      '<div><span>Dispersion total (D = max - min)</span><b>'+displayRaw(D,5)+'</b></div>'+
+      '<div><span>Dispersion porcentual (T = D/A x 100%)</span><b>'+ (isFinite(T)?T.toFixed(2):'--') +'%</b></div>'+
+      '</div>';
+
+    if (D <= S){
+      const r = formatMeasurement(mean, S);
+      const vS = fmtNum(r.value,r.decimalPlaces), eS = fmtNum(r.error,r.decimalPlaces);
+      html += resultRowHtml(vS+' <span class="pm">\u00B1</span> '+eS, vS+' \u00B1 '+eS);
+      html += '<div class="result-note">D es menor o igual que S -> con estas '+N+' medidas basta. El error absoluto es la sensibilidad: deltaA = S.</div>';
+    } else {
+      let neededN, tramo;
+      if (T<=2){neededN=3; tramo='T <= 2%';}
+      else if (T<=8){neededN=6; tramo='2% &lt; T &le; 8%';}
+      else if (T<=15){neededN=15; tramo='8% &lt; T &le; 15%';}
+      else {neededN=50; tramo='T &gt; 15%';}
+
+      if (N===3){
+        html += '<div class="result-note strong">D es mayor que S -> segun la Tabla 1 ('+tramo+'), necesitas un total de '+(neededN===50?'minimo 50':neededN)+' medidas. Sigue midiendo y vuelve a pegar aqui TODAS tus medidas (no solo las nuevas).</div>';
+      } else if (N===6){
+        const errorProp = Math.max(D/4, S);
+        const r = formatMeasurement(mean, errorProp);
+        const vS = fmtNum(r.value,r.decimalPlaces), eS = fmtNum(r.error,r.decimalPlaces);
+        html += resultRowHtml(vS+' <span class="pm">\u00B1</span> '+eS, vS+' \u00B1 '+eS);
+        html += '<div class="result-note">N = 6 -> deltaA = max(D/4, S) = max('+displayRaw(D/4,5)+', '+S+') = '+displayRaw(errorProp,5)+'</div>';
+      } else if (N>=15){
+        const sumSq = arr.reduce(function(acc,x){return acc+Math.pow(x-mean,2);},0);
+        const errorProp = Math.sqrt(sumSq/N);
+        const r = formatMeasurement(mean, errorProp);
+        const vS = fmtNum(r.value,r.decimalPlaces), eS = fmtNum(r.error,r.decimalPlaces);
+        html += resultRowHtml(vS+' <span class="pm">\u00B1</span> '+eS, vS+' \u00B1 '+eS);
+        html += '<div class="result-note">N &ge; 15 -> deltaA = error cuadratico medio = raiz(suma(Ai-A)^2 / N) = '+displayRaw(errorProp,5)+'</div>';
+      } else {
+        html += '<div class="result-note strong">Tienes N = '+N+', que no coincide con el protocolo (3, 6 o &ge;15 medidas). Segun la Tabla 1 ('+tramo+') deberias tener '+(neededN===50?'minimo 50':neededN)+' medidas en total. Ajusta la cantidad de datos.</div>';
+      }
+    }
+    return {kind:'custom', html:html};
+  }
+},
+
+{
+  id:'media-desviacion', cat:'repetidas',
+  title:'Media y desviacion estandar (como PROMEDIO y DESVEST.P)',
+  formula:'x = suma(xi)/N      sigma = raiz( suma((xi-x)^2) / N )',
+  desc:'Pega tu lista de datos (uno por linea o separados por coma/espacio). Sigma aqui es poblacional (divide por N), igual que DESVEST.P en Excel -- no DESVEST.S.',
+  inputs:[
+    {id:'datos', type:'textlist', label:'Datos', unit:'', def:'12.1\n12.3\n11.9\n12.0\n12.2'}
+  ],
+  compute:function(v){
+    const arr = v.datos;
+    if (!arr || arr.length<1) return {kind:'custom', html:'<div class="result-line muted">Ingresa al menos un dato.</div>'};
+    const N = arr.length;
+    const mean = arr.reduce(function(a,b){return a+b;},0)/N;
+    const S = arr.reduce(function(acc,x){return acc+Math.pow(x-mean,2);},0)/N;
+    const sigma = Math.sqrt(S);
+    let html = '<div class="result-table">'+
+      '<div><span>N</span><b>'+N+'</b></div>'+
+      '<div><span>Media (x) -- PROMEDIO</span><b>'+displayRaw(mean,6)+'</b></div>'+
+      '<div><span>Varianza (S)</span><b>'+displayRaw(S,6)+'</b></div>'+
+      '</div>';
+    html += resultRowHtml('\u03C3 = '+displayRaw(sigma,6));
+    html += '<div class="result-note">sigma = desviacion estandar poblacional (DESVEST.P). Cuanto mas pequena, mas agrupados estan los datos alrededor de la media.</div>';
+    return {kind:'custom', html:html};
+  }
+},
+
+{
+  id:'suma-resta', cat:'propagacion',
+  title:'Suma y resta de cantidades con error',
+  formula:'(A&plusmn;&Delta;A) &plusmn; (B&plusmn;&Delta;B) = C&plusmn;&Delta;C ,  &Delta;C = &radic;(&Delta;A&sup2; + &Delta;B&sup2;)',
+  inputs:[
+    {id:'A', type:'number', label:'A', unit:'', def:4.03},
+    {id:'dA', type:'number', label:'Delta A', unit:'', def:0.03},
+    {id:'op', type:'select', label:'Operacion', options:[{v:'+',t:'A + B'},{v:'-',t:'A - B'}], def:'+'},
+    {id:'B', type:'number', label:'B', unit:'', def:13.245},
+    {id:'dB', type:'number', label:'Delta B', unit:'', def:0.008},
+  ],
+  compute:function(v){
+    const C = v.op==='+' ? v.A+v.B : v.A-v.B;
+    const dC = Math.sqrt(v.dA*v.dA + v.dB*v.dB);
+    return {kind:'pair', value:C, error:dC};
+  }
+},
+
+{
+  id:'producto-cociente', cat:'propagacion',
+  title:'Producto y cociente de cantidades con error',
+  formula:'(A&plusmn;&Delta;A)&middot;(B&plusmn;&Delta;B) = C&plusmn;&Delta;C ,  &Delta;C = C&middot;&radic;((&Delta;A/A)&sup2; + (&Delta;B/B)&sup2;)',
+  inputs:[
+    {id:'A', type:'number', label:'A', unit:'', def:3.9},
+    {id:'dA', type:'number', label:'Delta A', unit:'', def:0.1},
+    {id:'op', type:'select', label:'Operacion', options:[{v:'*',t:'A x B'},{v:'/',t:'A / B'}], def:'*'},
+    {id:'B', type:'number', label:'B', unit:'', def:0.763},
+    {id:'dB', type:'number', label:'Delta B', unit:'', def:0.005},
+  ],
+  compute:function(v){
+    if (v.A===0||v.B===0) return {kind:'custom', html:'<div class="result-line muted">A y B no pueden ser 0.</div>'};
+    const C = v.op==='*' ? v.A*v.B : v.A/v.B;
+    const rel = Math.sqrt(Math.pow(v.dA/v.A,2)+Math.pow(v.dB/v.B,2));
+    const dC = Math.abs(C)*rel;
+    return {kind:'pair', value:C, error:dC};
+  }
+},
+
+{
+  id:'potencia', cat:'propagacion',
+  title:'Potencia de una cantidad con error',
+  formula:'(A&plusmn;&Delta;A)&#8319; = C&plusmn;&Delta;C ,  &Delta;C = C&middot;n&middot;(&Delta;A/A)',
+  inputs:[
+    {id:'A', type:'number', label:'A', unit:'', def:10.02},
+    {id:'dA', type:'number', label:'Delta A', unit:'', def:0.05},
+    {id:'n', type:'number', label:'n (exponente)', unit:'', def:3},
+  ],
+  compute:function(v){
+    if (v.A===0) return {kind:'custom', html:'<div class="result-line muted">A no puede ser 0.</div>'};
+    const C = Math.pow(v.A, v.n);
+    const dC = Math.abs(C * v.n * (v.dA/v.A));
+    return {kind:'pair', value:C, error:dC};
+  }
+},
+
+{
+  id:'trigonometrica', cat:'propagacion',
+  title:'Funcion trigonometrica de un angulo con error',
+  formula:'&Delta;R = | f(&theta;+&Delta;&theta;) - f(&theta;) |',
+  inputs:[
+    {id:'func', type:'select', label:'Funcion', options:[{v:'sin',t:'sen(theta)'},{v:'cos',t:'cos(theta)'},{v:'tan',t:'tan(theta)'}], def:'cos'},
+    {id:'theta', type:'number', label:'theta (grados)', unit:'grados', def:30},
+    {id:'dtheta', type:'number', label:'Delta theta (grados)', unit:'grados', def:1},
+  ],
+  compute:function(v){
+    const thetaRad = v.theta*Math.PI/180;
+    const dThetaRad = v.dtheta*Math.PI/180;
+    const f = v.func==='sin'?Math.sin : v.func==='cos'?Math.cos : Math.tan;
+    const R = f(thetaRad);
+    const dR = Math.abs(f(thetaRad+dThetaRad)-f(thetaRad));
+    return {kind:'pair', value:R, error:dR};
+  }
+},
+
+{
+  id:'constante', cat:'propagacion',
+  title:'Constante multiplicada por una cantidad con error',
+  formula:'K&middot;(A&plusmn;&Delta;A) = C&plusmn;&Delta;C ,  &Delta;C = K&middot;&Delta;A',
+  inputs:[
+    {id:'K', type:'number', label:'K (constante, sin error)', unit:'', def:4.9},
+    {id:'A', type:'number', label:'A', unit:'', def:3.7},
+    {id:'dA', type:'number', label:'Delta A', unit:'', def:0.2},
+  ],
+  compute:function(v){
+    const C = v.K*v.A;
+    const dC = Math.abs(v.K)*v.dA;
+    return {kind:'pair', value:C, error:dC};
+  }
+},
+
+{
+  id:'error-final', cat:'propagacion',
+  title:'Error final combinado (absoluto + estadistico)',
+  formula:'&Delta;Z = &radic;(EA&sup2; + EE&sup2;)',
+  inputs:[
+    {id:'EA', type:'number', label:'EA - error absoluto (propagacion/instrumento)', unit:'', def:0.02},
+    {id:'EE', type:'number', label:'EE - error estadistico (sigma)', unit:'', def:0.01},
+  ],
+  compute:function(v){
+    const dZ = Math.sqrt(v.EA*v.EA+v.EE*v.EE);
+    const rounded = roundErrorOnly(dZ);
+    return {kind:'custom', html: resultRowHtml('\u0394Z = '+rounded, '\u0394Z = '+rounded) };
+  }
+},
+
+{
+  id:'perimetro', cat:'formulas',
+  title:'Perimetro con propagacion de error',
+  formula:'p = 2(l+a) ,  &Delta;p = 2&middot;&radic;(&Delta;l&sup2; + &Delta;a&sup2;)',
+  inputs:[
+    {id:'l', type:'number', label:'l - largo', unit:'', def:21.0},
+    {id:'dl', type:'number', label:'Delta l', unit:'', def:0.1},
+    {id:'a', type:'number', label:'a - ancho', unit:'', def:29.7},
+    {id:'da', type:'number', label:'Delta a', unit:'', def:0.1},
+  ],
+  compute:function(v){
+    const p = 2*(v.l+v.a);
+    const dp = 2*Math.sqrt(v.dl*v.dl+v.da*v.da);
+    return {kind:'pair', value:p, error:dp};
+  }
+},
+
+{
+  id:'area', cat:'formulas',
+  title:'Area con propagacion de error',
+  formula:'A = l&middot;a ,  &Delta;A = A&middot;&radic;((&Delta;l/l)&sup2; + (&Delta;a/a)&sup2;)',
+  inputs:[
+    {id:'l', type:'number', label:'l - largo', unit:'', def:21.0},
+    {id:'dl', type:'number', label:'Delta l', unit:'', def:0.1},
+    {id:'a', type:'number', label:'a - ancho', unit:'', def:29.7},
+    {id:'da', type:'number', label:'Delta a', unit:'', def:0.1},
+  ],
+  compute:function(v){
+    if (v.l===0||v.a===0) return {kind:'custom', html:'<div class="result-line muted">l y a no pueden ser 0.</div>'};
+    const Ar = v.l*v.a;
+    const rel = Math.sqrt(Math.pow(v.dl/v.l,2)+Math.pow(v.da/v.a,2));
+    const dAr = Ar*rel;
+    return {kind:'pair', value:Ar, error:dAr};
+  }
+},
+
+{
+  id:'volumen-cubo', cat:'formulas',
+  title:'Volumen del cubo',
+  formula:'V = lado&sup3; ,  &Delta;V = V&middot;3&middot;(&Delta;lado/lado)',
+  inputs:[
+    {id:'lado', type:'number', label:'lado', unit:'', def:8.0},
+    {id:'dlado', type:'number', label:'Delta lado', unit:'', def:0.05},
+  ],
+  compute:function(v){
+    if (v.lado===0) return {kind:'custom', html:'<div class="result-line muted">El lado no puede ser 0.</div>'};
+    const V = Math.pow(v.lado,3);
+    const dV = Math.abs(V*3*(v.dlado/v.lado));
+    return {kind:'pair', value:V, error:dV};
+  }
+},
+
+{
+  id:'volumen-cilindro', cat:'formulas',
+  title:'Volumen del cilindro',
+  formula:'V = &pi;&middot;(d&sup2;/4)&middot;h ,  &Delta;V = V&middot;&radic;((2&Delta;d/d)&sup2; + (&Delta;h/h)&sup2;)',
+  inputs:[
+    {id:'d', type:'number', label:'d - diametro', unit:'', def:10.0},
+    {id:'dd', type:'number', label:'Delta d', unit:'', def:0.05},
+    {id:'h', type:'number', label:'h - altura', unit:'', def:20.0},
+    {id:'dh', type:'number', label:'Delta h', unit:'', def:0.05},
+  ],
+  compute:function(v){
+    if (v.d===0||v.h===0) return {kind:'custom', html:'<div class="result-line muted">d y h no pueden ser 0.</div>'};
+    const V = Math.PI*(v.d*v.d/4)*v.h;
+    const rel = Math.sqrt(Math.pow(2*v.dd/v.d,2)+Math.pow(v.dh/v.h,2));
+    const dV = V*rel;
+    return {kind:'pair', value:V, error:dV};
+  }
+},
+
+{
+  id:'peso', cat:'formulas',
+  title:'Peso P = m . g',
+  formula:'P = m&middot;g ,  &Delta;P = g&middot;&Delta;m',
+  inputs:[
+    {id:'m', type:'number', label:'m - masa', unit:'kg', def:0.250},
+    {id:'dm', type:'number', label:'Delta m', unit:'kg', def:0.0005},
+    {id:'g', type:'number', label:'g', unit:'m/s2', def:9.8},
+  ],
+  compute:function(v){
+    const P = v.m*v.g;
+    const dP = Math.abs(v.g)*v.dm;
+    return {kind:'pair', value:P, error:dP, unit:'N'};
+  }
+},
+
+{
+  id:'tiempo-cuadrado', cat:'formulas',
+  title:'Tiempo al cuadrado (t^2) con propagacion',
+  formula:'t&sup2; ,  &Delta;(t&sup2;) = t&sup2;&middot;2&middot;(&Delta;t/t)',
+  inputs:[
+    {id:'t', type:'number', label:'t', unit:'s', def:0.319},
+    {id:'dt', type:'number', label:'Delta t', unit:'s', def:0.002},
+  ],
+  compute:function(v){
+    if (v.t===0) return {kind:'custom', html:'<div class="result-line muted">t no puede ser 0.</div>'};
+    const t2 = v.t*v.t;
+    const dt2 = Math.abs(t2*2*(v.dt/v.t));
+    return {kind:'pair', value:t2, error:dt2, unit:'s2'};
+  }
+},
+
+{
+  id:'gravedad', cat:'formulas',
+  title:'Gravedad g = 2l / t^2',
+  formula:'g = 2l/t&sup2; ,  &Delta;g = g&middot;&radic;((&Delta;l/l)&sup2; + (2&Delta;t/t)&sup2;)',
+  inputs:[
+    {id:'l', type:'number', label:'l - distancia recorrida', unit:'m', def:0.500},
+    {id:'dl', type:'number', label:'Delta l', unit:'m', def:0.001},
+    {id:'t', type:'number', label:'t - tiempo de caida', unit:'s', def:0.319},
+    {id:'dt', type:'number', label:'Delta t', unit:'s', def:0.002},
+  ],
+  compute:function(v){
+    if (v.l===0||v.t===0) return {kind:'custom', html:'<div class="result-line muted">l y t no pueden ser 0.</div>'};
+    const g = 2*v.l/(v.t*v.t);
+    const rel = Math.sqrt(Math.pow(v.dl/v.l,2)+Math.pow(2*v.dt/v.t,2));
+    const dg = g*rel;
+    return {kind:'pair', value:g, error:dg, unit:'m/s2'};
+  }
+},
+
+{
+  id:'histograma', cat:'formulas',
+  title:'Rango y ancho de intervalo para histograma',
+  formula:'R = max - min ,  &Delta;i = R / redondeo(&radic;N)',
+  desc:'Pega tus datos. El ancho de intervalo usa la raiz de N redondeada al entero mas cercano, igual que en el ejemplo de la guia.',
+  inputs:[
+    {id:'datos', type:'textlist', label:'Datos', unit:'', def:'1.82\n1.79\n1.80\n1.79\n1.83\n1.82\n1.77'}
+  ],
+  compute:function(v){
+    const arr = v.datos;
+    if (!arr||arr.length<2) return {kind:'custom', html:'<div class="result-line muted">Ingresa al menos 2 datos.</div>'};
+    const N = arr.length;
+    const max = Math.max.apply(null,arr), min = Math.min.apply(null,arr);
+    const R = max-min;
+    const sqrtN = Math.sqrt(N);
+    const sqrtNRound = Math.round(sqrtN);
+    const deltaI = R/sqrtNRound;
+    let html = '<div class="result-table">'+
+      '<div><span>N</span><b>'+N+'</b></div>'+
+      '<div><span>Maximo</span><b>'+displayRaw(max)+'</b></div>'+
+      '<div><span>Minimo</span><b>'+displayRaw(min)+'</b></div>'+
+      '<div><span>Rango (R)</span><b>'+displayRaw(R)+'</b></div>'+
+      '<div><span>raiz(N) redondeada</span><b>'+sqrtN.toFixed(3)+' &rarr; '+sqrtNRound+'</b></div>'+
+      '</div>';
+    html += resultRowHtml('\u0394i = '+displayRaw(deltaI), '\u0394i = '+displayRaw(deltaI));
+    return {kind:'custom', html:html};
+  }
+},
+
+];
+
+/* ============================================================
+   RENDER: entradas
+   ============================================================ */
+function renderInput(toolId, input){
+  const id = 'in-'+toolId+'-'+input.id;
+  if (input.type==='number'){
+    return '<div class="field"><label for="'+id+'">'+input.label+(input.unit?' <span class="unit">('+input.unit+')</span>':'')+'</label>'+
+      '<input type="number" step="any" inputmode="decimal" id="'+id+'" value="'+input.def+'"></div>';
+  }
+  if (input.type==='text'){
+    return '<div class="field"><label for="'+id+'">'+input.label+'</label>'+
+      '<input type="text" id="'+id+'" value="'+escAttr(input.def)+'"></div>';
+  }
+  if (input.type==='textlist'){
+    return '<div class="field field-wide"><label for="'+id+'">'+input.label+'</label>'+
+      '<textarea id="'+id+'" rows="4">'+input.def+'</textarea></div>';
+  }
+  if (input.type==='select'){
+    const opts = input.options.map(function(o){
+      return '<option value="'+o.v+'"'+(o.v===input.def?' selected':'')+'>'+o.t+'</option>';
+    }).join('');
+    return '<div class="field"><label for="'+id+'">'+input.label+'</label>'+
+      '<select id="'+id+'">'+opts+'</select></div>';
+  }
+  return '';
+}
+
+function readInputs(tool){
+  const values = {};
+  for (let i=0;i<tool.inputs.length;i++){
+    const inp = tool.inputs[i];
+    const el = document.getElementById('in-'+tool.id+'-'+inp.id);
+    if (!el) continue;
+    if (inp.type==='number'){
+      values[inp.id] = parseFloat(el.value);
+    } else if (inp.type==='text'){
+      values[inp.id] = el.value;
+    } else if (inp.type==='textlist'){
+      const parts = el.value.split(/[\s,;]+/).map(function(s){return s.trim();}).filter(function(s){return s.length>0;}).map(Number).filter(function(n){return !isNaN(n);});
+      values[inp.id] = parts;
+    } else if (inp.type==='select'){
+      values[inp.id] = el.value;
+    }
+  }
+  return values;
+}
+
+function runCalc(tool){
+  const outEl = document.getElementById('output-'+tool.id);
+  if (!outEl) return;
+  const values = readInputs(tool);
+  for (let i=0;i<tool.inputs.length;i++){
+    const inp = tool.inputs[i];
+    if (inp.type==='number' && isNaN(values[inp.id])){
+      outEl.innerHTML = '<div class="result-line muted">Completa todos los campos para ver el resultado.</div>';
+      return;
+    }
+  }
+  let out;
+  try{
+    out = tool.compute(values);
+  }catch(e){
+    outEl.innerHTML = '<div class="result-line muted">No se pudo calcular. Revisa los datos ingresados.</div>';
+    return;
+  }
+  if (!out){
+    outEl.innerHTML = '<div class="result-line muted">Completa los datos para ver el resultado.</div>';
+    return;
+  }
+  renderOutput(outEl, out);
+}
+
+function renderOutput(container, out){
+  if (out.kind==='custom'){
+    container.innerHTML = out.html;
+    bindCopyButtons(container);
+    return;
+  }
+  let vStr, eStr, unitStr, mainText, noteHtml;
+  unitStr = out.unit ? (' '+out.unit) : '';
+  if (out.kind==='single'){
+    vStr = out.decimals!==undefined ? displayRaw(out.value, out.decimals) : String(out.value);
+    mainText = vStr+unitStr;
+    noteHtml = out.label ? ('<div class="result-note">'+out.label+'</div>') : '';
+  } else {
+    const r = formatMeasurement(out.value, out.error);
+    vStr = fmtNum(r.value, r.decimalPlaces);
+    eStr = fmtNum(r.error, r.decimalPlaces);
+    mainText = vStr+' \u00B1 '+eStr+unitStr;
+    noteHtml = '<div class="result-note">sin redondear: '+displayRaw(out.value,6)+' \u00B1 '+displayRaw(out.error,6)+unitStr+'</div>';
+  }
+  container.innerHTML = resultRowHtml(mainText) + noteHtml;
+  bindCopyButtons(container);
+}
+
+/* ============================================================
+   RENDER: herramienta activa
+   ============================================================ */
+function renderTool(tool){
+  let catLabel = '';
+  for (let i=0;i<CATEGORIES.length;i++){ if (CATEGORIES[i].id===tool.cat) catLabel = CATEGORIES[i].label; }
+  const inputsHtml = tool.inputs.map(function(inp){ return renderInput(tool.id, inp); }).join('');
+  const content = document.getElementById('content');
+  content.innerHTML =
+    '<div class="tool-eyebrow">'+catLabel+'</div>'+
+    '<h2 class="tool-title">'+tool.title+'</h2>'+
+    (tool.desc ? '<p class="tool-desc">'+tool.desc+'</p>' : '')+
+    '<div class="formula-plate">'+tool.formula+'</div>'+
+    '<div class="inputs-grid">'+inputsHtml+'</div>'+
+    '<div class="output-panel" id="output-'+tool.id+'"></div>';
+
+  const fields = content.querySelectorAll('.inputs-grid input, .inputs-grid select, .inputs-grid textarea');
+  fields.forEach(function(el){
+    el.addEventListener('input', function(){ runCalc(tool); });
+  });
+  runCalc(tool);
+
+  document.querySelectorAll('.nav-item').forEach(function(b){
+    b.classList.toggle('active', b.dataset.tool===tool.id);
+  });
+  closeSidebar();
+}
+
+function renderFormulario(){
+  let html = '<div class="tool-eyebrow">Referencia completa</div>'+
+    '<h2 class="tool-title">Formulario -- todas las formulas</h2>'+
+    '<p class="tool-desc">Todas las formulas de los dos talleres en un solo lugar, agrupadas igual que en el menu. Usala como hoja de formulas si prefieres calcular a mano o en tu propia calculadora.</p>';
+  CATEGORIES.forEach(function(cat){
+    html += '<div class="formulario-cat">'+cat.label+'</div>';
+    TOOLS.filter(function(t){return t.cat===cat.id;}).forEach(function(tool){
+      html += '<div class="formulario-item"><div class="formulario-item-title">'+tool.title+'</div>'+
+        '<div class="formula-plate small">'+tool.formula+'</div></div>';
+    });
+  });
+  document.getElementById('content').innerHTML = html;
+  document.querySelectorAll('.nav-item').forEach(function(b){ b.classList.remove('active'); });
+  document.getElementById('btn-formulario').classList.add('active');
+  closeSidebar();
+}
+
+/* ============================================================
+   RENDER: barra lateral
+   ============================================================ */
+function renderSidebar(){
+  let html = '<button type="button" class="nav-item formulario-btn" id="btn-formulario">Ver todas las formulas</button>';
+  CATEGORIES.forEach(function(cat){
+    html += '<div class="nav-cat">'+cat.label+'</div>';
+    TOOLS.filter(function(t){return t.cat===cat.id;}).forEach(function(tool){
+      html += '<button type="button" class="nav-item" data-tool="'+tool.id+'">'+tool.title+'</button>';
+    });
+  });
+  document.getElementById('sidebar').innerHTML = html;
+  document.querySelectorAll('.nav-item[data-tool]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const tool = TOOLS.filter(function(t){return t.id===btn.dataset.tool;})[0];
+      if (tool) renderTool(tool);
+    });
+  });
+  document.getElementById('btn-formulario').addEventListener('click', renderFormulario);
+}
+
+function openSidebar(){
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('overlay').classList.add('show');
+}
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('overlay').classList.remove('show');
+}
+
+/* ============================================================
+   INICIALIZACION
+   ============================================================ */
+function initApp(){
+  renderSidebar();
+  renderTool(TOOLS[0]);
+  document.getElementById('menuToggle').addEventListener('click', function(){
+    const sb = document.getElementById('sidebar');
+    if (sb.classList.contains('open')) closeSidebar(); else openSidebar();
+  });
+  document.getElementById('overlay').addEventListener('click', closeSidebar);
+}
+if (document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
+</script>
+</body>
+</html>
